@@ -21,6 +21,7 @@ from ..backends.utils import fp4_compatible
 from ..qtensor.base_qtensor import BaseQuantizedTensor
 from ..utils import reduce_amax, reduce_block_amax, reduce_block_padding
 from .scale_search_quant import quantize_triton
+from .search_custom_impl import quantize_search
 
 # Define conversion tables
 e2m1_bounds = torch.tensor([0.25, 0.75, 1.25, 1.75, 2.5, 3.5, 5])
@@ -163,7 +164,7 @@ class NVFP4QTensor(BaseQuantizedTensor):
         tuple: Contains quantized data, quantized per block scaling factor, and per tensor scaling factor.
         """
         # scale search ----
-        if False:
+        if False: # triton
             input_shape = input.shape
             input_dtype = input.dtype
             input = reduce_block_padding(input, block_sizes={-1: block_size})
@@ -174,6 +175,15 @@ class NVFP4QTensor(BaseQuantizedTensor):
                 cls(input_shape, input_dtype, outputs),
                 _weights_scaling_factor,
                 _weights_scaling_factor_2
+            )
+        if True: # direct impl
+            print("Calling custom impl")
+            result = quantize_search(input, block_size, weights_scaling_factor, weights_scaling_factor_2, keep_high_precision)
+            input_shape, input_dtype, packed_weight, weights_scaling_factor, weights_scaling_factor_2 = result
+            return (
+                cls(input_shape, input_dtype, packed_weight),
+                weights_scaling_factor,
+                weights_scaling_factor_2
             )
         # --------
         # Get original input shape
