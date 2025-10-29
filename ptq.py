@@ -127,33 +127,14 @@ def forward_loop(model):
         # model(**inputs)
         batch_cuda = {k: v.to(device) for k, v in batch.items() if isinstance(v, torch.Tensor)}
         model(**batch_cuda)
-import sys
-import os
 
-# Define the absolute path of the folder you want to trace
-TRACE_DIR = os.path.abspath("./TensorRT-Model-Optimizer/modelopt/torch/quantization")
-
-def trace_calls(frame, event, arg):
-    if event == 'call':
-        code = frame.f_code
-        filename = os.path.abspath(code.co_filename)
-        # Only trace calls from within the specified directory
-        if filename.startswith(TRACE_DIR):
-            print(f"CALL: {code.co_name} ({filename}:{frame.f_lineno})")
-    return trace_calls
-
-#sys.settrace(trace_calls)
-
-# Run your code here
-model = mtq.quantize(model, mtq.NVFP4_DEFAULT_CFG, forward_loop)
-
-sys.settrace(None)
 # PTQ with in-place replacement to quantized modules
+model = mtq.quantize(model, mtq.NVFP4_DEFAULT_CFG, forward_loop)
 
 from modelopt.torch.export import export_hf_checkpoint
 with torch.inference_mode():
     export_hf_checkpoint(
         model,  # The quantized model.
-        export_dir="/workspace/reyna/llama-quant-nosearch-aligned/"
+        export_dir="../llama-quant-nosearch-aligned/"
     )
 
