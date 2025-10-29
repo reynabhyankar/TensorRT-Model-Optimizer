@@ -109,7 +109,7 @@ def get_cnn_dataloader(model_name, num_samples=512, batch_size=8, seed=42, max_l
 # --------------------------
 
 # Setup the model and calibration set
-model_name = "meta-llama/Llama-3.1-8B-Instruct"
+model_name = "Qwen/Qwen3-8B"
 device = torch.device("cuda")
 model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
 tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -128,13 +128,37 @@ def forward_loop(model):
         batch_cuda = {k: v.to(device) for k, v in batch.items() if isinstance(v, torch.Tensor)}
         model(**batch_cuda)
 
+USE_SEARCH = True
+os.environ["USE_SCALE_SEARCH"] = "1" if USE_SEARCH else "0"
+
+# Verify environment variable is set
+print(f"Environment variable USE_SCALE_SEARCH is set to: {os.getenv('USE_SCALE_SEARCH')}")
+
+# Run your code here
+print("Starting quantization...")
+model = mtq.quantize(model, mtq.NVFP4_DEFAULT_CFG, forward_loop=forward_loop)
+print("Quantization complete!")
+
+# Verify quantization by checking if quantizers are present
+has_quantizers = any("quantizer" in name for name, _ in model.named_modules())
+print(f"Model has quantizers: {has_quantizers}")
+
 # PTQ with in-place replacement to quantized modules
 model = mtq.quantize(model, mtq.NVFP4_DEFAULT_CFG, forward_loop)
 
 from modelopt.torch.export import export_hf_checkpoint
+export_dir = f"./llama-quant-{"search" if USE_SEARCH else "nosearch"}-aligned/"
+print(f"Exporting quantized model to {export_dir}...")
+
 with torch.inference_mode():
     export_hf_checkpoint(
         model,  # The quantized model.
-        export_dir="../llama-quant-nosearch-aligned/"
+        export_dir=export_dir
     )
+
+# Save tokenizer to the export directory
+print("Saving tokenizer...")
+tokenizer.save_pretrained(export_dir)
+
+print("Export complete!")
 

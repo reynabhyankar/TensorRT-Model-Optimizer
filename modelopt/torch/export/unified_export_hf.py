@@ -333,11 +333,26 @@ def _export_quantized_weight(
         weight, _ = maybe_transpose_expert_weight_dimensions(
             weight, is_bmm_expert_weight=is_bmm_expert_weight
         )
-        weight_scale = NVFP4QTensor.get_weights_scaling_factor(
-            weight,
-            block_size=block_size,
-            weights_scaling_factor_2=weight_scale_2,
-        )[0]
+        
+        # Use the full quantize method which respects USE_SCALE_SEARCH env variable
+        import os
+        if os.getenv("USE_SCALE_SEARCH") == "1":
+            # Use scale search for better reconstruction
+            _, weight_scale, weight_scale_2_computed = NVFP4QTensor.quantize(
+                weight.to(dtype),
+                block_size=block_size,
+                weights_scaling_factor_2=weight_scale_2,
+            )
+            # Update weight_scale_2 if it was computed
+            if weight_scale_2 is None:
+                weight_scale_2 = weight_scale_2_computed
+        else:
+            # Use greedy method (original behavior)
+            weight_scale = NVFP4QTensor.get_weights_scaling_factor(
+                weight,
+                block_size=block_size,
+                weights_scaling_factor_2=weight_scale_2,
+            )[0]
 
         quantized_weight = to_quantized_weight(
             weight.to(dtype),
