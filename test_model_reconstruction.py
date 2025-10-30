@@ -253,9 +253,9 @@ if __name__ == "__main__":
     import sys
     
     # Paths to models
-    baseline_path = "Qwen/Qwen3-8B"
-    nosearch_path = "/resource/llama-quant-nosearch-aligned/"
-    search_path = "/resource/llama-quant-search-aligned/"
+    baseline_path = "Qwen/Qwen3-32B"
+    nosearch_path = "/workspace/reyna/qwen32b-nosearch/"
+    search_path = "/workspace/reyna/qwen32b-search/"
     
     # Allow override from command line
     if len(sys.argv) > 1:
